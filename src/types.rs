@@ -7,9 +7,9 @@ pub trait FitsDataType: Sized {
     fn bitpix() -> i32;
 }
 
-impl FitsDataType for char {
-    fn new_fits_array(shape: &[usize], data: Vec<char>) -> FitsData {
-        FitsData::Characters(FitsDataArray {
+impl FitsDataType for u8 {
+    fn new_fits_array(shape: &[usize], data: Vec<u8>) -> FitsData {
+        FitsData::Bytes(FitsDataArray {
             shape: Vec::from(shape),
             data,
         })

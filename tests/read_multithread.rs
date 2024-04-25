@@ -28,8 +28,9 @@ fn read_second_hdu_array_from_n_threads() {
                 let table_hdu_1 = iter.next().unwrap();
                 let data = table_hdu_1.read_data();
                 match data {
-                    FitsData::Characters(array) => {
-                        assert_eq!(&array.data[..30], FIRST_30_CHARS,);
+                    FitsData::Bytes(array) => {
+                        let as_chars = array.data.iter().map(|&b| b as char).collect::<Vec<_>>();
+                        assert_eq!(&as_chars[..30], FIRST_30_CHARS,);
                     }
                     _ => panic!("Should be Characters!"),
                 }

@@ -55,7 +55,7 @@ pub struct Hdu {
 /// Follows data representation as defined in [FITS standard 6](https://archive.stsci.edu/fits/fits_standard/node42.html#SECTION001000000000000000000).
 #[derive(Debug, Clone)]
 pub enum FitsData {
-    Characters(FitsDataArray<char>),
+    Bytes(FitsDataArray<u8>),
     IntegersI32(FitsDataArray<Option<i32>>),
     IntegersU32(FitsDataArray<Option<u32>>),
     FloatingPoint32(FitsDataArray<f32>),
@@ -83,7 +83,7 @@ impl<T> FitsDataArray<T> {
     }
 }
 
-impl FitsDataArray<char> {
+impl FitsDataArray<u8> {
     fn raw(&self) -> Vec<u8> {
         unimplemented!("Cannot write Characters")
     }
@@ -138,9 +138,9 @@ impl FitsDataArray<f64> {
 }
 
 impl FitsData {
-    fn raw(&self) -> Vec<u8> {
+    pub fn raw(&self) -> Vec<u8> {
         match self {
-            FitsData::Characters(chars) => chars.raw(),
+            FitsData::Bytes(bytes) => bytes.raw(),
             FitsData::IntegersI32(arr) => arr.raw(),
             FitsData::IntegersU32(arr) => arr.raw(),
             FitsData::FloatingPoint32(arr) => arr.raw(),
@@ -623,10 +623,10 @@ impl Hdu {
             .value_as_integer_number("BITPIX")
             .expect("BITPIX is present");
         match bitpix {
-            8 => FitsData::Characters(self.inner_read_data_force(|file, len| {
+            8 => FitsData::Bytes(self.inner_read_data_force(|file, len| {
                 let mut buf = vec![0u8; len];
                 file.read_exact(&mut buf).expect("Read array");
-                buf.into_iter().map(|n| n as char).collect()
+                buf
             })),
             16 => {
                 let blank = self.value_as_integer_number("BLANK");

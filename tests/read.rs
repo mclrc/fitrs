@@ -87,10 +87,11 @@ fn read_second_hdu_array() {
     let table_hdu_1 = iter.next().unwrap();
     let data = table_hdu_1.read_data();
     match data {
-        FitsData::Characters(array) => {
+        FitsData::Bytes(array) => {
             assert_eq!(array.shape, vec![61, 20]);
+            let as_chars = array.data.iter().map(|&b| b as char).collect::<Vec<_>>();
             assert_eq!(
-                &array.data[..30],
+                &as_chars[..30],
                 &vec![
                     '\u{0}', '\u{0}', '\u{0}', '\u{0}', '\u{0}', '\u{0}', '\u{0}', '\u{0}',
                     '\u{0}', '\u{0}', '\u{0}', '\u{0}', '\u{0}', '\u{0}', '\u{0}', '\u{0}',
