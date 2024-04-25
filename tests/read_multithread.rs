@@ -43,7 +43,7 @@ fn read_second_hdu_array_from_n_threads() {
             panicked.push((i, e));
         }
     }
-    if panicked.len() > 0 {
+    if !panicked.is_empty() {
         panic!("{} threads panicked: {:?}", panicked.len(), panicked);
     }
 }

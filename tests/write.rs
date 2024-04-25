@@ -6,10 +6,7 @@ use fitrs::{Fits, Hdu};
 
 #[test]
 fn write_single_hdu_file() {
-    let data = (0..20)
-        .map(|i| (0..20).map(move |j| i + j))
-        .flatten()
-        .collect();
+    let data = (0..20).flat_map(|i| (0..20).map(move |j| i + j)).collect();
     let primary_hdu = Hdu::new(&[20, 20], data);
     let _ = Fits::create("out.fits", primary_hdu).expect("created!");
 
@@ -25,10 +22,7 @@ fn write_single_hdu_file() {
 
 #[test]
 fn write_multiple_hdu_file() {
-    let data: Vec<i32> = (0..20)
-        .map(|i| (0..20).map(move |j| i + j))
-        .flatten()
-        .collect();
+    let data: Vec<i32> = (0..20).flat_map(|i| (0..20).map(move |j| i + j)).collect();
     let primary_hdu = Hdu::new(&[20, 20], data.clone());
     let mut fits = Fits::create("out.fits", primary_hdu).expect("created!");
 

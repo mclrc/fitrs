@@ -152,9 +152,19 @@ impl FitsData {
 type HeaderKeyWord = String;
 
 #[derive(Debug, Clone)]
-struct HeaderValueComment {
+pub struct HeaderValueComment {
     value: Option<HeaderValue>,
     comment: Option<HeaderComment>,
+}
+
+impl HeaderValueComment {
+    pub fn value(&self) -> Option<&HeaderValue> {
+        self.value.as_ref()
+    }
+
+    pub fn comment(&self) -> Option<&HeaderComment> {
+        self.comment.as_ref()
+    }
 }
 
 /// Value stored inside the [`Hdu`] header.
@@ -216,12 +226,8 @@ impl Fits {
     /// Get [`Hdu`] by `EXTNAME`. Defined in [FIST standard 5.4.2.6](https://archive.stsci.edu/fits/fits_standard/node40.html#SECTION00942000000000000000)
     pub fn get_by_name(&self, index: &str) -> Option<Hdu> {
         let value = Some(HeaderValue::CharacterString(String::from(index)));
-        for hdu in self.iter() {
-            if hdu.value("EXTNAME") == value.as_ref() {
-                return Some(hdu);
-            }
-        }
-        None
+        self.iter()
+            .find(|hdu| hdu.value("EXTNAME") == value.as_ref())
     }
 }
 
@@ -327,7 +333,7 @@ impl<'a> IntoIterator for &'a Fits {
 }
 
 fn tell(file: &mut File) -> u64 {
-    file.seek(SeekFrom::Current(0))
+    file.stream_position()
         .expect("Could not get cursor position!")
 }
 
@@ -483,7 +489,7 @@ trait IterableOverHdu: MovableCursor {
                 };
                 line_count += 1;
             }
-            let data_start_position = tell(&mut *file_lock);
+            let data_start_position = tell(&mut file_lock);
             (header, data_start_position)
         };
         // Lock released
@@ -562,6 +568,10 @@ impl Hdu {
         None
     }
 
+    pub fn header(&self) -> &[(HeaderKeyWord, Option<HeaderValueComment>)] {
+        &self.header
+    }
+
     fn value_as_integer_number(&self, key: &str) -> Option<i32> {
         self.value(key).and_then(|val| match *val {
             HeaderValue::IntegerNumber(n) => Some(n),
@@ -569,7 +579,7 @@ impl Hdu {
         })
     }
 
-    fn naxis(&self) -> Option<Vec<usize>> {
+    pub fn naxis(&self) -> Option<Vec<usize>> {
         self.value_as_integer_number("NAXIS").and_then(|naxis| {
             let mut vec = Vec::new();
             for i in 1..=naxis {
@@ -584,21 +594,21 @@ impl Hdu {
         })
     }
 
-    fn data_length(&self) -> Option<usize> {
+    pub fn data_length(&self) -> Option<usize> {
         self.naxis().map(|naxis| {
             let mut len = 0;
             for (i, k) in naxis.iter().enumerate() {
                 if i == 0 {
-                    len += *k as usize;
+                    len += *k;
                 } else {
-                    len *= *k as usize;
+                    len *= *k;
                 }
             }
             len
         })
     }
 
-    fn data_byte_length(&self) -> Option<usize> {
+    pub fn data_byte_length(&self) -> Option<usize> {
         self.data_length().and_then(|len| {
             self.value_as_integer_number("BITPIX").map(|bit| {
                 let bit = if bit < 0 { -bit } else { bit };
@@ -675,7 +685,7 @@ impl Hdu {
         file_lock
             .seek(SeekFrom::Start(self.data_start))
             .expect("Set data position");
-        FitsDataArray::new(&naxis, read(&mut *file_lock, length))
+        FitsDataArray::new(&naxis, read(&mut file_lock, length))
     }
 }
 
@@ -734,7 +744,7 @@ impl Hdu {
         header.push((
             "BITPIX".to_owned(),
             Some(HeaderValueComment {
-                value: Some(HeaderValue::IntegerNumber(T::bitpix() as i32)),
+                value: Some(HeaderValue::IntegerNumber(T::bitpix())),
                 comment: None,
             }),
         ));
@@ -808,7 +818,7 @@ impl Hdu {
             }
         }
 
-        self.next_hdu_start = tell(&mut *file_lock);
+        self.next_hdu_start = tell(&mut file_lock);
         Ok(())
     }
 
@@ -909,7 +919,7 @@ impl HeaderValue {
                 return None;
             }
         }
-        Some(HeaderValue::Logical(b)).map(ParsedHeaderValue::Full)
+        Some(ParsedHeaderValue::Full(HeaderValue::Logical(b)))
     }
 
     fn new_integer(value: &[u8]) -> Option<ParsedHeaderValue> {
@@ -917,7 +927,7 @@ impl HeaderValue {
             .ok()
             .and_then(|string| {
                 let trimmed = string.trim();
-                i32::from_str_radix(trimmed, 10).ok()
+                trimmed.parse::<i32>().ok()
             })
             .map(HeaderValue::IntegerNumber)
             .map(ParsedHeaderValue::Full)
@@ -1070,13 +1080,13 @@ impl<'a> Iterator for ValueCommentSplit<'a> {
                     if c == Some(&SLASH_U8) {
                         self.state = ValueReturned;
                         return Some(&self.buf[..(self.i - 1)]);
-                    } else if c == None {
+                    } else if c.is_none() {
                         self.state = ValueReturned;
                         return Some(self.buf);
                     }
                 }
                 ValueReturned => {
-                    if c == None {
+                    if c.is_none() {
                         return None;
                     } else {
                         self.state = CommentReturned;
@@ -1087,7 +1097,7 @@ impl<'a> Iterator for ValueCommentSplit<'a> {
                 InsideString => {
                     if c == Some(&QUOTE_U8) {
                         self.state = EscapeChar;
-                    } else if c == None {
+                    } else if c.is_none() {
                         self.state = LookForComment;
                     }
                 }
@@ -1282,7 +1292,7 @@ mod tests {
 
     impl CardImage {
         fn from(s: &str) -> CardImage {
-            let mut card = [' ' as u8; 80];
+            let mut card = [b' '; 80];
             for (i, c) in s.chars().enumerate() {
                 card[i] = c as u8;
             }
